@@ -1,0 +1,24 @@
+# Copy to terraform.tfvars in EACH target account and adjust per environment.
+# Account ids below are AWS documentation placeholders, not real accounts.
+# Never commit a real terraform.tfvars.
+aws_region = "us-east-1"
+
+project_name = "aws-multi-account-cicd"
+
+# One of: dev, staging, prod
+environment = "dev"
+
+# 12-digit id of the tooling account that hosts the pipeline.
+tooling_account_id = "000000000000"
+
+pipeline_role_name = "multi-acct-cicd-pipeline"
+deployer_role_name = "multi-acct-cicd-deployer"
+
+# Optional: set a shared external id and configure the same value on the
+# pipeline assume-role action for defense in depth. Leave empty to disable.
+external_id = ""
+
+tags = {
+  Owner      = "platform-team"
+  CostCenter = "shared-services"
+}

@@ -1,0 +1,20 @@
+# Copy to terraform.tfvars and replace the placeholder account ids with the real
+# 12-digit ids of your target accounts. Account ids below are AWS documentation
+# placeholders, not real accounts. Never commit a real terraform.tfvars.
+aws_region = "us-east-1"
+
+project_name = "aws-multi-account-cicd"
+
+target_accounts = {
+  dev     = "111111111111"
+  staging = "222222222222"
+  prod    = "123456789012"
+}
+
+pipeline_role_name = "multi-acct-cicd-pipeline"
+deployer_role_name = "multi-acct-cicd-deployer"
+
+tags = {
+  Owner       = "platform-team"
+  CostCenter  = "shared-services"
+}

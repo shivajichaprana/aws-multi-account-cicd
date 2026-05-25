@@ -1,0 +1,43 @@
+# ---- Terraform ----
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.terraform.lock.hcl
+
+# ---- Build / packaging artifacts ----
+dist/
+build/
+*.zip
+*.tar.gz
+
+# ---- Generated scan / audit reports (never commit; may contain account data) ----
+*_report.html
+*-results.json
+*-results.sarif
+checkov-report.*
+trivy-report.*
+
+# ---- Editors / OS ----
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# ---- Python (helper scripts / tests) ----
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
