@@ -1,0 +1,64 @@
+# Deploy stage buildspec.
+# Assumes the target-account deployer role (DEPLOY_ROLE_ARN, injected per
+# environment by the pipeline action) and applies the change there. The
+# CodeBuild service role holds no standing permissions in the target account —
+# every deploy call runs under temporary, scoped credentials.
+version: 0.2
+
+env:
+  variables:
+    DEPLOY_ENV: "unset"
+    DEPLOY_ROLE_ARN: "unset"
+    TARGET_ACCOUNT_ID: "unset"
+
+phases:
+  install:
+    commands:
+      - command -v jq >/dev/null 2>&1 || (yum install -y jq || true)
+
+  pre_build:
+    commands:
+      - set -euo pipefail
+      - |
+        if [ "${DEPLOY_ROLE_ARN}" = "unset" ] || [ -z "${DEPLOY_ROLE_ARN}" ]; then
+          echo "DEPLOY_ROLE_ARN was not provided by the pipeline action" >&2
+          exit 1
+        fi
+      - echo "Deploying to ${DEPLOY_ENV} (account ${TARGET_ACCOUNT_ID})"
+      # Exchange the CodeBuild role for the scoped, cross-account deployer role.
+      - |
+        CREDS="$(aws sts assume-role \
+          --role-arn "${DEPLOY_ROLE_ARN}" \
+          --role-session-name "deploy-${DEPLOY_ENV}-${CODEBUILD_BUILD_NUMBER:-0}" \
+          --duration-seconds 3600 \
+          --query 'Credentials' --output json)"
+      - export AWS_ACCESS_KEY_ID="$(echo "${CREDS}" | jq -r '.AccessKeyId')"
+      - export AWS_SECRET_ACCESS_KEY="$(echo "${CREDS}" | jq -r '.SecretAccessKey')"
+      - export AWS_SESSION_TOKEN="$(echo "${CREDS}" | jq -r '.SessionToken')"
+      # Fail fast if the assumed identity is not in the expected account.
+      - |
+        ACTUAL_ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+        if [ "${TARGET_ACCOUNT_ID}" != "unset" ] && [ "${ACTUAL_ACCOUNT}" != "${TARGET_ACCOUNT_ID}" ]; then
+          echo "Assumed role is in ${ACTUAL_ACCOUNT}, expected ${TARGET_ACCOUNT_ID}" >&2
+          exit 1
+        fi
+      - echo "Operating as $(aws sts get-caller-identity --query Arn --output text)"
+
+  build:
+    commands:
+      - set -euo pipefail
+      - echo "Applying deployment for ${DEPLOY_ENV}"
+      # Use the service repo's own deploy entrypoint when present so this spec
+      # stays generic; the blue/green CodeDeploy wiring is added in a later step.
+      - |
+        if [ -x deploy/deploy.sh ]; then
+          deploy/deploy.sh "${DEPLOY_ENV}"
+        elif [ -f Makefile ] && grep -qE '^deploy:' Makefile; then
+          make deploy ENV="${DEPLOY_ENV}"
+        else
+          echo "No deploy entrypoint found for ${DEPLOY_ENV}; nothing to apply"
+        fi
+
+  post_build:
+    commands:
+      - echo "Deploy to ${DEPLOY_ENV} finished with status ${CODEBUILD_BUILD_SUCCEEDING}"

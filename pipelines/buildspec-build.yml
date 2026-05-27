@@ -1,0 +1,68 @@
+# Build stage buildspec.
+# Compiles/packages the application, optionally builds and pushes a container
+# image, and emits the deploy bundle (appspec + task definition + image refs)
+# that downstream deploy actions consume.
+version: 0.2
+
+env:
+  variables:
+    # Override in the CodeBuild project or the pipeline action as needed.
+    ARTIFACT_DIR: "build-output"
+  exported-variables:
+    - IMAGE_TAG
+    - GIT_COMMIT
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "Installing build toolchain"
+      - command -v jq >/dev/null 2>&1 || (yum install -y jq || true)
+
+  pre_build:
+    commands:
+      - set -euo pipefail
+      - export GIT_COMMIT="${CODEBUILD_RESOLVED_SOURCE_VERSION:-local}"
+      - export IMAGE_TAG="${GIT_COMMIT:0:8}"
+      - echo "Building commit ${GIT_COMMIT} (tag ${IMAGE_TAG})"
+      - mkdir -p "${ARTIFACT_DIR}"
+
+  build:
+    commands:
+      - set -euo pipefail
+      - echo "Running application build"
+      # Use the project's own build entrypoint when present; otherwise no-op so
+      # the pattern stays drop-in for any service repo.
+      - if [ -f Makefile ]; then make build; elif [ -f package.json ]; then npm ci && npm run build --if-present; else echo "No build entrypoint found; packaging sources as-is"; fi
+
+  post_build:
+    commands:
+      - set -euo pipefail
+      - echo "Assembling deploy bundle"
+      # Carry the deploy descriptors into the artifact so the deploy stage has
+      # everything it needs without re-cloning the source.
+      - if [ -f pipelines/appspec.yml ]; then cp pipelines/appspec.yml "${ARTIFACT_DIR}/appspec.yml"; fi
+      - if [ -d deploy ]; then cp -r deploy "${ARTIFACT_DIR}/deploy"; fi
+      # Record provenance metadata for the deploy and integration-test stages.
+      - |
+        cat > "${ARTIFACT_DIR}/build-metadata.json" <<METADATA
+        {
+          "gitCommit": "${GIT_COMMIT}",
+          "imageTag": "${IMAGE_TAG}",
+          "builtBy": "${CODEBUILD_BUILD_ID:-unknown}",
+          "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        }
+        METADATA
+      - cat "${ARTIFACT_DIR}/build-metadata.json"
+
+artifacts:
+  base-directory: "build-output"
+  files:
+    - "**/*"
+  name: build_output
+
+cache:
+  paths:
+    - "node_modules/**/*"
+    - "/root/.npm/**/*"

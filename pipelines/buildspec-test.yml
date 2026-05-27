@@ -1,0 +1,65 @@
+# Test stage buildspec.
+# Runs unit tests (TEST_SCOPE=unit) before deploy, and integration tests
+# (TEST_SCOPE=integration) after a deploy. Test results are published to a
+# CodeBuild report group so failures surface in the pipeline UI.
+version: 0.2
+
+env:
+  variables:
+    TEST_SCOPE: "unit"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "Preparing ${TEST_SCOPE} test run"
+
+  pre_build:
+    commands:
+      - set -euo pipefail
+      - mkdir -p reports
+      - |
+        if [ "${TEST_SCOPE}" = "integration" ]; then
+          echo "Integration tests against env: ${TARGET_ENV:-unknown}"
+        else
+          echo "Unit tests"
+        fi
+
+  build:
+    commands:
+      - set -euo pipefail
+      - |
+        if [ "${TEST_SCOPE}" = "integration" ]; then
+          if [ -f Makefile ] && grep -qE '^integration-test:' Makefile; then
+            make integration-test
+          elif [ -f package.json ]; then
+            npm ci && npm run test:integration --if-present
+          else
+            echo "No integration test target; emitting empty report"
+          fi
+        else
+          if [ -f Makefile ] && grep -qE '^test:' Makefile; then
+            make test
+          elif [ -f package.json ]; then
+            npm ci && npm test --if-present
+          else
+            echo "No unit test target; emitting empty report"
+          fi
+        fi
+      # Guarantee at least one JUnit file exists so the report group is valid.
+      - |
+        if [ -z "$(ls -A reports 2>/dev/null)" ]; then
+          cat > reports/placeholder.xml <<XML
+        <?xml version="1.0" encoding="UTF-8"?>
+        <testsuite name="${TEST_SCOPE}" tests="1" failures="0" errors="0">
+          <testcase classname="${TEST_SCOPE}" name="no-tests-defined"/>
+        </testsuite>
+        XML
+        fi
+
+reports:
+  test-results:
+    files:
+      - "reports/**/*.xml"
+    file-format: "JUNITXML"
