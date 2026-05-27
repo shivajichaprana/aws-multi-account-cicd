@@ -1,6 +1,6 @@
-# Copy to terraform.tfvars and replace the placeholder account ids with the real
-# 12-digit ids of your target accounts. Account ids below are AWS documentation
-# placeholders, not real accounts. Never commit a real terraform.tfvars.
+# Copy to terraform.tfvars and replace the placeholders with your real values.
+# Account ids below are AWS documentation placeholders, not real accounts.
+# Never commit a real terraform.tfvars.
 aws_region = "us-east-1"
 
 project_name = "aws-multi-account-cicd"
@@ -14,7 +14,34 @@ target_accounts = {
 pipeline_role_name = "multi-acct-cicd-pipeline"
 deployer_role_name = "multi-acct-cicd-deployer"
 
+# --- Source -----------------------------------------------------------------
+# Create the connection once in the console (or via Terraform) and authorize the
+# OAuth handshake so its status is "Available" before running the pipeline.
+source_connection_arn = "arn:aws:codeconnections:us-east-1:123456789012:connection/00000000-0000-0000-0000-000000000000"
+source_repository_id  = "<your-github-org>/your-service"
+source_branch         = "main"
+
+# --- Pipeline behaviour -----------------------------------------------------
+# Leave artifact_bucket_name empty to auto-derive a unique name.
+artifact_bucket_name = ""
+
+# Optional: an SNS topic to notify approvers. Leave empty to skip notifications.
+approval_sns_topic_arn = ""
+
+# Promotion path. Each name must be a key in target_accounts above.
+deployment_stages = [
+  { name = "dev", manual_approval = false, integration_test = true },
+  { name = "staging", manual_approval = true, integration_test = true },
+  { name = "prod", manual_approval = true, integration_test = false },
+]
+
+# --- CodeBuild --------------------------------------------------------------
+codebuild_compute_type = "BUILD_GENERAL1_SMALL"
+codebuild_image        = "aws/codebuild/amazonlinux2-x86_64-standard:5.0"
+build_timeout_minutes  = 30
+log_retention_days     = 365
+
 tags = {
-  Owner       = "platform-team"
-  CostCenter  = "shared-services"
+  Owner      = "platform-team"
+  CostCenter = "shared-services"
 }
