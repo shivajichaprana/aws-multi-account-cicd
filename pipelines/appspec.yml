@@ -1,0 +1,75 @@
+# ---------------------------------------------------------------------------
+# CodeDeploy AppSpec — ECS task definition swap with validation hooks
+#
+# This file is consumed by CodeDeploy's ECS blue/green controller. The
+# pipeline's deploy stage rewrites <TASK_DEFINITION_ARN> with the freshly-
+# published task definition arn (via `sed -i` in buildspec-deploy.yml) and
+# uploads the rendered file as the CodeDeploy revision.
+#
+# Lifecycle event order for an ECS blue/green deployment:
+#
+#   1. BeforeInstall   — registered before the green task set is created
+#   2. AfterInstall    — green task set has reached steadyState
+#   3. AfterAllowTestTraffic — test listener (8443) points at green; safe
+#                              to run synthetic checks here without touching
+#                              the prod listener
+#   4. BeforeAllowTraffic   — prod listener is about to start shifting
+#   5. AfterAllowTraffic    — prod traffic shift complete
+#
+# The validator Lambda runs at AfterAllowTestTraffic — that's the latest
+# point we can reject a bad deploy without any user traffic having touched
+# the new task set. Failing the hook stops the deployment and, with auto-
+# rollback enabled on the deployment group, restores the blue task set.
+# ---------------------------------------------------------------------------
+version: 0.0
+
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        # Placeholder rewritten by buildspec-deploy.yml just before upload.
+        # Format: arn:aws:ecs:<region>:<account>:task-definition/<family>:<revision>
+        TaskDefinition: "<TASK_DEFINITION_ARN>"
+
+        LoadBalancerInfo:
+          # The container exposed to the load balancer. Must match the name
+          # used in the task definition's containerDefinitions[].name.
+          ContainerName: "app"
+          ContainerPort: 8080
+
+        # Run the green task set with the same network configuration as the
+        # current task set unless these are explicitly overridden here. The
+        # platform version is pinned so deployments are reproducible across
+        # accounts; bump it deliberately in a separate change.
+        PlatformVersion: "1.4.0"
+        CapacityProviderStrategy:
+          - CapacityProvider: "FARGATE"
+            Weight: 1
+            Base: 0
+          - CapacityProvider: "FARGATE_SPOT"
+            Weight: 1
+            Base: 0
+
+Hooks:
+  # Lightweight smoke check before the green task set is even created.
+  # Useful for verifying upstream prerequisites (KMS key health, secret
+  # presence) before paying for replacement tasks.
+  - BeforeInstall: "CodeDeployHook_BeforeInstall"
+
+  # Green task set is healthy. Run any one-off migrations / cache primers
+  # here before letting test traffic in.
+  - AfterInstall: "CodeDeployHook_AfterInstall"
+
+  # *** Primary validation gate ***
+  # Test listener (8443) now points at the green target group. The hook
+  # exercises the new task set via that listener and returns Succeeded or
+  # Failed. A Failed return prevents any prod traffic from shifting.
+  - AfterAllowTestTraffic: "CodeDeployHook_AfterAllowTestTraffic"
+
+  # Final no-op gate before prod shift starts. Reserved for change-window
+  # checks (e.g. is a freeze in effect?).
+  - BeforeAllowTraffic: "CodeDeployHook_BeforeAllowTraffic"
+
+  # Post-shift hook. Runs once prod is 100% on green. Useful for kicking
+  # off cache warmers or paging an SRE if the canary metrics are noisy.
+  - AfterAllowTraffic: "CodeDeployHook_AfterAllowTraffic"
