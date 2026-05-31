@@ -7,6 +7,11 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 5.40.0"
     }
+    # Used to package the Slack-notifier Lambda from inline source at plan time.
+    archive = {
+      source  = "hashicorp/archive"
+      version = ">= 2.4.0"
+    }
   }
 
   # Configure a remote backend per environment, e.g.:
