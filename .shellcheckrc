@@ -1,0 +1,22 @@
+# shellcheck repository configuration.
+#
+# The operator scripts are deliberately written to fail-fast (set -euo
+# pipefail), use tput-guarded colour output, and assemble JSON via jq. A
+# small, explicitly-justified set of checks is disabled so CI gates on real
+# defects rather than house-style preferences.
+
+# SC2155: "Declare and assign separately to avoid masking return values."
+# We assign readonly/local constants from $(basename ...) and $(date ...),
+# commands that cannot meaningfully fail here. Splitting every one of them
+# hurts readability with no correctness benefit.
+disable=SC2155
+
+# SC2310/SC2311: functions invoked in a condition disable `set -e` inside
+# them. That is intentional — the probe_* helpers return a status that the
+# caller branches on; they must NOT abort the whole script on a failed probe.
+disable=SC2310
+disable=SC2311
+
+# Lint as bash (the scripts use #!/usr/bin/env bash and bash-only features
+# such as arrays and printf %()T).
+shell=bash

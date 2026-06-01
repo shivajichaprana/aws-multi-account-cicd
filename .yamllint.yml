@@ -1,0 +1,22 @@
+# yamllint configuration for this repository.
+# Tuned for AWS CodeBuild buildspecs / CodeDeploy appspec and GitHub Actions
+# workflows, which legitimately use long embedded shell lines and the GitHub
+# `on:` trigger key.
+extends: default
+
+rules:
+  # Buildspecs embed shell heredocs whose physical lines can be long; keep this
+  # as a warning so it never fails CI while still nudging toward tidy YAML.
+  line-length:
+    max: 160
+    level: warning
+  # `appspec.yml` and buildspecs start straight at `version:` with no `---`.
+  document-start: disable
+  # GitHub Actions' `on:` key must not be flagged as a truthy value.
+  truthy:
+    allowed-values: ["true", "false", "on", "off"]
+  comments:
+    min-spaces-from-content: 1
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
