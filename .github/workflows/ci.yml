@@ -1,0 +1,115 @@
+# Repository CI for aws-multi-account-cicd.
+#
+# Two independent gates run on every push and pull request to main:
+#   1. terraform  — fmt-check, backend-less init, and validate for each root
+#                   module (tooling-account and target-account), in a matrix.
+#   2. lint       — yamllint of the pipeline buildspecs / appspec and the
+#                   workflow itself, a parse smoke-test of every YAML file, and
+#                   shellcheck of all operator/pipeline shell scripts.
+#
+# Both jobs are read-only: they never configure a backend, never assume an AWS
+# role, and never need cloud credentials, so the workflow is safe to run on
+# pull requests from forks.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: CI only needs to read the checked-out tree.
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned so local `make validate` and CI agree on behaviour.
+  TERRAFORM_VERSION: "1.9.8"
+
+jobs:
+  terraform:
+    name: terraform (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - terraform/tooling-account
+          - terraform/target-account
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform -chdir=${{ matrix.module }} fmt -check -recursive -diff
+
+      - name: terraform init (no backend)
+        run: terraform -chdir=${{ matrix.module }} init -backend=false -input=false
+
+      - name: terraform validate
+        run: terraform -chdir=${{ matrix.module }} validate -no-color
+
+  lint:
+    name: lint (yaml + shell)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install yamllint
+        run: pip install "yamllint==1.35.1"
+
+      - name: yamllint (buildspecs, appspec, workflows)
+        run: yamllint -c .yamllint.yml pipelines/ .github/workflows/ .yamllint.yml
+
+      - name: YAML parse smoke-test
+        run: |
+          python - <<'PY'
+          import glob
+          import sys
+          import yaml
+
+          failures = []
+          for path in sorted(glob.glob("pipelines/*.yml") + glob.glob(".github/workflows/*.yml")):
+              try:
+                  with open(path, "r", encoding="utf-8") as handle:
+                      list(yaml.safe_load_all(handle))
+              except yaml.YAMLError as exc:  # pragma: no cover - exercised in CI
+                  failures.append(f"{path}: {exc}")
+
+          if failures:
+              print("YAML parse failures:")
+              print("\n".join(failures))
+              sys.exit(1)
+          print("All YAML documents parsed cleanly.")
+          PY
+
+      - name: shellcheck operator and pipeline scripts
+        run: |
+          # shellcheck is preinstalled on ubuntu-latest runners.
+          shellcheck --version
+          mapfile -t scripts < <(find scripts pipelines -type f -name '*.sh' | sort)
+          if [ "${#scripts[@]}" -eq 0 ]; then
+            echo "No shell scripts found to lint." >&2
+            exit 1
+          fi
+          printf 'Linting:\n%s\n' "${scripts[*]}"
+          shellcheck --severity=warning "${scripts[@]}"
