@@ -59,7 +59,7 @@ policy.
 a target account. The boundary is the backstop that guarantees a mis-edited
 policy (or a compromised pipeline) cannot escalate beyond an explicitly approved
 ceiling. Boundary changes are deliberately a separate, reviewable edit from
-day-to-day policy changes.
+routine policy changes.
 
 ## 5. Build → test → deploy (ADR-003)
 
