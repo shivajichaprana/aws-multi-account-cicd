@@ -39,8 +39,8 @@ variable "slack_webhook_ssm_parameter" {
     subscriptions still work). The parameter must be created out of band so its
     secret value never lands in Terraform state.
   DESC
-  type    = string
-  default = ""
+  type        = string
+  default     = ""
 
   validation {
     condition     = var.slack_webhook_ssm_parameter == "" || can(regex("^/?[a-zA-Z0-9_.\\-/]+$", var.slack_webhook_ssm_parameter))

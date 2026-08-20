@@ -59,9 +59,9 @@ variable "external_id" {
     When non-empty, the deployer trust policy requires the caller to present it.
     Set the same value on the pipeline's assume-role action.
   DESC
-  type      = string
-  default   = ""
-  sensitive = true
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "tags" {

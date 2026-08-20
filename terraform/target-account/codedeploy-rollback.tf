@@ -32,8 +32,8 @@ variable "ignore_poll_alarm_failure" {
     one of the configured alarms. Default false matches the safer
     behaviour: an unreachable alarm fails closed and stops the deployment.
   DESC
-  type    = bool
-  default = false
+  type        = bool
+  default     = false
 }
 
 variable "rollback_events" {
@@ -43,8 +43,8 @@ variable "rollback_events" {
     The default rolls back on any failure or alarm trip but leaves manual
     stop requests untouched so an operator can stop without auto-revert.
   DESC
-  type    = list(string)
-  default = ["DEPLOYMENT_FAILURE", "DEPLOYMENT_STOP_ON_ALARM"]
+  type        = list(string)
+  default     = ["DEPLOYMENT_FAILURE", "DEPLOYMENT_STOP_ON_ALARM"]
 
   validation {
     condition = alltrue([

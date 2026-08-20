@@ -32,7 +32,7 @@ variable "alb_arn_suffix" {
     service (e.g. "app/my-alb/1234abcd5678efgh"). Used as the
     LoadBalancer dimension on every ALB-emitted CloudWatch metric.
   DESC
-  type = string
+  type        = string
 
   validation {
     condition     = can(regex("^app/[^/]+/[a-z0-9]+$", var.alb_arn_suffix))
@@ -46,7 +46,7 @@ variable "blue_target_group_arn_suffix" {
     Used as the TargetGroup dimension when tracking the live fleet's 5xx
     rate and latency during a deployment.
   DESC
-  type = string
+  type        = string
 
   validation {
     condition     = can(regex("^targetgroup/[^/]+/[a-z0-9]+$", var.blue_target_group_arn_suffix))
@@ -60,7 +60,7 @@ variable "green_target_group_arn_suffix" {
     target group is the fastest signal that the freshly-deployed task set
     is failing its container or ELB health checks.
   DESC
-  type = string
+  type        = string
 
   validation {
     condition     = can(regex("^targetgroup/[^/]+/[a-z0-9]+$", var.green_target_group_arn_suffix))
@@ -74,8 +74,8 @@ variable "deployment_alarm_sns_topic_arn" {
     empty no notification actions are attached and the alarm still drives
     CodeDeploy auto-rollback as its sole side effect.
   DESC
-  type    = string
-  default = ""
+  type        = string
+  default     = ""
 
   validation {
     condition     = var.deployment_alarm_sns_topic_arn == "" || can(regex("^arn:aws[a-zA-Z-]*:sns:", var.deployment_alarm_sns_topic_arn))
