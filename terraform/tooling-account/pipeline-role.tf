@@ -32,10 +32,10 @@ data "aws_iam_policy_document" "pipeline_trust" {
 }
 
 resource "aws_iam_role" "pipeline" {
-  name                 = var.pipeline_role_name
-  description          = "CodePipeline execution role; assumes deployer roles in target accounts."
-  assume_role_policy   = data.aws_iam_policy_document.pipeline_trust.json
-  max_session_duration = 3600
+  name                  = var.pipeline_role_name
+  description           = "CodePipeline execution role; assumes deployer roles in target accounts."
+  assume_role_policy    = data.aws_iam_policy_document.pipeline_trust.json
+  max_session_duration  = 3600
   force_detach_policies = true
 
   tags = merge(local.common_tags, { Name = var.pipeline_role_name })

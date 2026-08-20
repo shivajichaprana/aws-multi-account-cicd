@@ -26,7 +26,7 @@ variable "target_accounts" {
     target account. The tooling pipeline role is granted sts:AssumeRole into the
     deployer role of each of these accounts.
   DESC
-  type        = map(string)
+  type = map(string)
 
   validation {
     condition     = alltrue([for id in values(var.target_accounts) : can(regex("^[0-9]{12}$", id))])
@@ -51,8 +51,8 @@ variable "deployer_role_name" {
     the assume-role target ARNs. Must match deployer_role_name in the
     target-account module.
   DESC
-  type        = string
-  default     = "multi-acct-cicd-deployer"
+  type    = string
+  default = "multi-acct-cicd-deployer"
 }
 
 variable "tags" {
@@ -72,7 +72,7 @@ variable "source_connection_arn" {
     "Available" out of band (creating it via Terraform leaves it PENDING until a
     human authorizes the OAuth handshake in the console).
   DESC
-  type        = string
+  type = string
 
   validation {
     condition     = can(regex("^arn:aws[a-z-]*:code(star-connections|connections):[a-z0-9-]+:[0-9]{12}:connection/[0-9a-f-]+$", var.source_connection_arn))

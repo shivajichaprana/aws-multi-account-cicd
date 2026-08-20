@@ -36,7 +36,7 @@ resource "aws_iam_role" "codebuild" {
   name                  = "${var.project_name}-codebuild"
   description           = "Service role for the CICD CodeBuild projects."
   assume_role_policy    = data.aws_iam_policy_document.codebuild_trust.json
-  force_detach_policies  = true
+  force_detach_policies = true
 
   tags = merge(local.common_tags, { Name = "${var.project_name}-codebuild" })
 }

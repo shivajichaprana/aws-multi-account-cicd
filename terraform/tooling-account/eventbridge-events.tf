@@ -37,7 +37,7 @@ resource "aws_cloudwatch_event_rule" "approval_needed" {
   description = "Fires when ${aws_codepipeline.this.name} pauses for a manual approval."
 
   event_pattern = jsonencode({
-    source        = ["aws.codepipeline"]
+    source = ["aws.codepipeline"]
     "detail-type" = ["CodePipeline Action Execution State Change"]
     detail = {
       pipeline = [aws_codepipeline.this.name]
@@ -86,7 +86,7 @@ resource "aws_cloudwatch_event_rule" "pipeline_failed" {
   description = "Fires when an execution of ${aws_codepipeline.this.name} fails."
 
   event_pattern = jsonencode({
-    source        = ["aws.codepipeline"]
+    source = ["aws.codepipeline"]
     "detail-type" = ["CodePipeline Pipeline Execution State Change"]
     detail = {
       pipeline = [aws_codepipeline.this.name]
